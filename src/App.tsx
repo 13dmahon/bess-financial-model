@@ -1,6 +1,6 @@
-import BESSfinancialModel from "./BESSfinancialModel"; // same case as the file name
+import BESSFinancialModel from "./BESSFinancialModel"; // same case as the file name
 
 
 export default function App() {
-  return <BESSfinancialModel />;
+  return <BESSFinancialModel />;
 }
