@@ -1,31 +1,23 @@
 import React, { useState, useMemo } from "react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, Area, AreaChart, PieChart, Pie, Cell
+  Tooltip, Legend, ResponsiveContainer, Area, AreaChart, PieChart, Pie, Cell, ScatterChart, Scatter
 } from "recharts";
 import {
   Download, TrendingUp, Battery, Zap, PoundSterling,
-  Calculator, FileText, Sliders, FileSpreadsheet, Upload, Check, AlertCircle,
-  Copy, Mail, Trash2, Edit, Plus, X, Eye, ChevronDown, ChevronRight
+  Calculator, FileText, Sliders, FileSpreadsheet, Check, AlertCircle,
+  Copy, Mail, Trash2, Edit, Plus, X, Eye, ChevronDown, ChevronRight, Target, Percent, Clock, DollarSign
 } from "lucide-react";
-
-/**
- * Goldilocks Input Upgrade
- * - Adds ~50-60 inputs across grouped tabs with collapsible sections
- * - Smart defaults, presets, CSV import, tooltips, conditional fields
- * - Validation with inline warnings
- * - Keeps prior dashboards/exports intact
- */
 
 const numberOr = (v, d = 0) => (v === "" || v === null || isNaN(parseFloat(v)) ? d : parseFloat(v));
 
 const presets = {
   conservative: {
     revenueEscalation: 1.5,
-    energyTrading_k: 25,
-    frequencyResponse_k: 15,
-    capacityMarket_k: 35,
-    ancillaryServices_k: 15,
+    energyTrading_k: 15,
+    frequencyResponse_k: 2,
+    capacityMarket_k: 30,
+    ancillaryServices_k: 2,
     floorRevenue_k: 20,
     fixedOM_k: 18,
     variableOM_perMWh: 0.8,
@@ -41,10 +33,10 @@ const presets = {
   },
   base: {
     revenueEscalation: 2.0,
-    energyTrading_k: 35,
-    frequencyResponse_k: 25,
+    energyTrading_k: 40,
+    frequencyResponse_k: 28,
     capacityMarket_k: 45,
-    ancillaryServices_k: 25,
+    ancillaryServices_k: 22,
     floorRevenue_k: 0,
     fixedOM_k: 15,
     variableOM_perMWh: 0.5,
@@ -60,10 +52,10 @@ const presets = {
   },
   optimistic: {
     revenueEscalation: 2.5,
-    energyTrading_k: 45,
+    energyTrading_k: 50,
     frequencyResponse_k: 35,
-    capacityMarket_k: 55,
-    ancillaryServices_k: 35,
+    capacityMarket_k: 52,
+    ancillaryServices_k: 28,
     floorRevenue_k: 30,
     fixedOM_k: 12,
     variableOM_perMWh: 0.4,
@@ -83,18 +75,12 @@ const BESSFinancialModel = () => {
   const [scenario, setScenario] = useState("base");
   const [tab, setTab] = useState("dashboard");
   const [showOptimizer, setShowOptimizer] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [extractedData, setExtractedData] = useState(null);
-  const [extractedText, setExtractedText] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
   const [projectPortfolio, setProjectPortfolio] = useState([]);
-  const [showEmailGenerator, setShowEmailGenerator] = useState(false);
+  const [showInvestmentMemo, setShowInvestmentMemo] = useState(false);
   const [showIRRCalculation, setShowIRRCalculation] = useState(false);
-  const [emailTone, setEmailTone] = useState("formal");
   const [toast, setToast] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: "irr", direction: "desc" });
 
-  // Collapsible groups in Inputs tab
   const [open, setOpen] = useState({
     project: true,
     technical: true,
@@ -107,36 +93,28 @@ const BESSFinancialModel = () => {
     returns: true,
   });
 
-  // "Goldilocks" input set
   const [inputs, setInputs] = useState({
-    // 1) Project Fundamentals
     projectName: "Staythorpe",
     capacityMW: 360,
     durationHours: 2,
     fcDate: "2025-05-01",
     codDate: "2027-08-01",
     projectLifeYears: 40,
-
-    // 2) Technical
     roundtripEfficiency_pct: 85,
     degradationRate_pct: 2.0,
     availability_pct: 95,
     cyclesPerDay: 1.5,
     augmentationYear: 20,
     augmentationCost_pctOfBattery: 40,
-
-    // 3) Revenues (£k/MW/yr)
-    energyTrading_k: 35,
-    frequencyResponse_k: 25,
-    capacityMarket_k: 45,
-    ancillaryServices_k: 25,
+    energyTrading_k: 15,
+    frequencyResponse_k: 2,
+    capacityMarket_k: 30,
+    ancillaryServices_k: 2,
     floorRevenue_k: 0,
     contractLength_years: 12,
     revenueEscalation: 2.0,
-
-    // 4) OPEX (£k/MW/yr) + mixed units
     fixedOM_k: 15,
-    variableOM_perMWh: 0.5, // £/MWh
+    variableOM_perMWh: 0.5,
     bessLTSA_k: 7,
     ltsaStartYear: 1,
     gridOM_k: 1.6,
@@ -144,8 +122,6 @@ const BESSFinancialModel = () => {
     businessRates_pctCapex: 0.8,
     assetMgmt_pctCapex: 0.8,
     landLease_k: 2.0,
-
-    // 5) CAPEX (£k/MW unless noted)
     epc_k: 201,
     bessSupply_k: 196,
     bop_k: 50,
@@ -153,8 +129,6 @@ const BESSFinancialModel = () => {
     gridNonContestable_k: 45,
     development_k: 14,
     contingency_pct: 10,
-
-    // 6) Debt Structure
     debtPercentage: 65,
     baseRate: 4.5,
     interestMargin: 5.5,
@@ -163,19 +137,13 @@ const BESSFinancialModel = () => {
     refinancing: true,
     refiAfterCOD_years: 1,
     refiRate: 2.25,
-
-    // 7) Tax & Accounting
     corpTaxRate: 25,
     capAllowancesPool: "Special",
     depreciationMethod: "Straight-line",
     vatTreatment: "Recoverable",
-
-    // 8) Returns Targets
     targetEquityIRR: 12,
     minDSCR: 1.15,
     maxGearing_pct: 85,
-
-    // General/legacy needed for charts
     discountRate: 8,
   });
 
@@ -196,97 +164,80 @@ const BESSFinancialModel = () => {
 
   const update = (k, v) => setInputs((p) => ({ ...p, [k]: typeof v === "string" && k.toLowerCase().includes("name") ? v : numberOr(v, "") }));
 
-  // --- Core Calculations mapping to Goldilocks inputs ---
   const calc = (S = inputs) => {
     const MW = numberOr(S.capacityMW, 0);
     const MWh = MW * numberOr(S.durationHours, 0);
 
-    // CAPEX build-up (convert £k/MW to £)
     const capexPerMW_k =
       numberOr(S.epc_k) + numberOr(S.bessSupply_k) + numberOr(S.bop_k) +
       numberOr(S.gridContestable_k) + numberOr(S.gridNonContestable_k) + numberOr(S.development_k);
-    const baseCapex = capexPerMW_k * 1000 * MW; // £
-    const totalCapex = baseCapex * (1 + numberOr(S.contingency_pct, 0) / 100); // £
+    const baseCapex = capexPerMW_k * 1000 * MW;
+    const totalCapex = baseCapex * (1 + numberOr(S.contingency_pct, 0) / 100);
 
-    // Revenue stack (per MW in £k, then scale)
     const y1RevPerMW_k = numberOr(S.energyTrading_k) + numberOr(S.frequencyResponse_k) + numberOr(S.capacityMarket_k) + numberOr(S.ancillaryServices_k);
 
-    // OPEX (per MW in £k)
-    const fixedOM = numberOr(S.fixedOM_k) * 1000 * MW; // £/yr
-    const gridOM = numberOr(S.gridOM_k) * 1000 * MW; // £/yr
-    const ltsa = numberOr(S.bessLTSA_k) * 1000 * MW; // £/yr (conditional by start year)
-    const variableOM_perMWh = numberOr(S.variableOM_perMWh); // £/MWh
+    const fixedOM = numberOr(S.fixedOM_k) * 1000 * MW;
+    const gridOM = numberOr(S.gridOM_k) * 1000 * MW;
+    const ltsa = numberOr(S.bessLTSA_k) * 1000 * MW;
+    const variableOM_perMWh = numberOr(S.variableOM_perMWh);
 
-    // Percent-of-capex opex
     const insurance = totalCapex * numberOr(S.insurance_pctCapex) / 100;
     const rates = totalCapex * numberOr(S.businessRates_pctCapex) / 100;
     const assetMgmt = totalCapex * numberOr(S.assetMgmt_pctCapex) / 100;
-    const landLease = numberOr(S.landLease_k) * 1000 * MW; // £/yr
+    const landLease = numberOr(S.landLease_k) * 1000 * MW;
 
-    // Debt
     const debtPct = numberOr(S.debtPercentage) / 100;
-    const debtAmount = totalCapex * debtPct; // £
-    const equityAmount = totalCapex - debtAmount; // £
+    const debtAmount = totalCapex * debtPct;
+    const equityAmount = totalCapex - debtAmount;
 
-    // Interest rate path (simple: base+margin, switch after refi)
     const basePlusMargin = numberOr(S.baseRate) + numberOr(S.interestMargin);
     const refiYear = numberOr(S.refiAfterCOD_years, Infinity);
 
     const years = [];
     const opYears = numberOr(S.projectLifeYears, 25);
 
-    // Debt annuity with initial rate only (simplified)
     const r0 = basePlusMargin / 100;
     const n0 = Math.max(1, Math.min(numberOr(S.debtTenor, 15), opYears));
     const annuity = debtAmount * (r0 * Math.pow(1 + r0, n0)) / (Math.pow(1 + r0, n0) - 1);
 
     let outstanding = debtAmount;
-    let cumFCF = 0;
 
     for (let y = 1; y <= opYears; y++) {
-      // Degradation & availability -> effective MW
       const degr = Math.pow(1 - numberOr(S.degradationRate_pct, 0) / 100, y);
       const effMW = MW * degr * (numberOr(S.availability_pct, 100) / 100);
 
-      // Revenue per MW with escalation and contract/floor handling
       const escalator = Math.pow(1 + numberOr(S.revenueEscalation, 0) / 100, Math.min(y - 1, Math.max(0, numberOr(S.contractLength_years, 0) - 1)));
       const revPerMW_k = y <= numberOr(S.contractLength_years, 0)
         ? Math.max(numberOr(S.floorRevenue_k, 0), y1RevPerMW_k * escalator)
-        : y1RevPerMW_k * Math.pow(1 + numberOr(S.revenueEscalation, 0) / 100, y - 1); // post-contract continue escalator
-      const revenue = (revPerMW_k * 1000) * MW; // £/yr
+        : y1RevPerMW_k * Math.pow(1 + numberOr(S.revenueEscalation, 0) / 100, y - 1);
+      const revenue = (revPerMW_k * 1000) * MW;
 
-      // Variable O&M on cycled energy (MWh/year)
       const cycles = numberOr(S.cyclesPerDay, 0) * 365;
       const roundtrip = numberOr(S.roundtripEfficiency_pct, 100) / 100;
       const cycledMWh = Math.max(0, MWh * cycles * roundtrip * degr);
-      const variableOM = cycledMWh * variableOM_perMWh; // £/yr
+      const variableOM = cycledMWh * variableOM_perMWh;
 
-      // LTSA from start year
       const ltsaCost = y >= numberOr(S.ltsaStartYear, 1) ? ltsa : 0;
 
       const opex = fixedOM + gridOM + ltsaCost + variableOM + insurance + rates + landLease + assetMgmt;
 
-      // Augmentation cost at specific year (as % of initial battery cost)
-      const initialBatteryCost = numberOr(S.bessSupply_k) * 1000 * MW; // £
+      const initialBatteryCost = numberOr(S.bessSupply_k) * 1000 * MW;
       const aug = y === numberOr(S.augmentationYear, -1)
         ? (initialBatteryCost * numberOr(S.augmentationCost_pctOfBattery, 0) / 100)
         : 0;
 
-      const ebitda = revenue - opex; // £
+      const ebitda = revenue - opex;
 
-      // Debt service (simplified annuity during tenor)
       const rateThisYear = (S.refinancing && y > refiYear) ? numberOr(S.refiRate) / 100 : r0;
-      const debtPay = y <= n0 ? annuity : 0; // keep annuity fixed for simplicity
+      const debtPay = y <= n0 ? annuity : 0;
       const interest = y <= n0 ? outstanding * rateThisYear : 0;
       const principal = y <= n0 ? Math.max(0, debtPay - interest) : 0;
       outstanding = Math.max(0, outstanding - principal);
 
-      const ebt = ebitda - interest - aug; // treat aug as expense before tax for screening
+      const ebt = ebitda - interest - aug;
       const tax = Math.max(0, ebt * numberOr(S.corpTaxRate, 0) / 100);
       const net = ebt - tax;
-      const fcf = net + principal; // equity view (capex paid at t0)
-
-      cumFCF += fcf / 1e6; // store in £m
+      const fcf = net + principal;
 
       const dscr = debtPay > 0 ? (ebitda / debtPay) : Infinity;
 
@@ -314,7 +265,6 @@ const BESSFinancialModel = () => {
       y.cumulativeFCF = (i === 0 ? 0 : years[i - 1].cumulativeFCF) + y.freeCashFlow;
     });
 
-    // NPV/IRR w.r.t. equity
     const npv = years.reduce((s, y) => s + y.freeCashFlow / Math.pow(1 + numberOr(inputs.discountRate, 8) / 100, y.yearNum), 0) - (equityAmount / 1e6);
 
     let irr = 0;
@@ -329,7 +279,6 @@ const BESSFinancialModel = () => {
     const minDSCR = years.slice(0, Math.min(years.length, numberOr(S.debtTenor, 15)))
       .reduce((m, y) => Math.min(m, y.dscr), Infinity);
 
-    // Payback & MOIC (equity)
     let simplePayback = 0, discountedPayback = 0;
     let cum = -equityAmount / 1e6, cumDisc = -equityAmount / 1e6;
     for (let i = 0; i < years.length; i++) {
@@ -338,7 +287,9 @@ const BESSFinancialModel = () => {
       if (cum >= 0 && simplePayback === 0) simplePayback = years[i].yearNum;
       if (cumDisc >= 0 && discountedPayback === 0) discountedPayback = years[i].yearNum;
     }
-    const moic = (years.reduce((s, y) => s + y.freeCashFlow, 0) + equityAmount / 1e6) / (equityAmount / 1e6);
+    const moic = (years.reduce((s, y) => s + y.freeCashFlow, 0)) / (equityAmount / 1e6);
+
+    const evPerMW = (totalCapex / MW) / 1000;
 
     return {
       totalCapex: totalCapex / 1e6,
@@ -354,12 +305,12 @@ const BESSFinancialModel = () => {
       simplePayback,
       discountedPayback,
       moic,
+      evPerMW,
     };
   };
 
   const financials = useMemo(() => calc(), [inputs, scenario]);
 
-  // --- Validation ---
   const validations = useMemo(() => {
     const warns = [];
     if (numberOr(inputs.roundtripEfficiency_pct) > 100 || numberOr(inputs.roundtripEfficiency_pct) < 50)
@@ -375,7 +326,6 @@ const BESSFinancialModel = () => {
     return warns;
   }, [inputs]);
 
-  // --- Simple CSV import: key,value per line ---
   const handleInputsCSV = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -392,7 +342,86 @@ const BESSFinancialModel = () => {
     e.target.value = "";
   };
 
-  // --- Styles from your existing component (kept) ---
+  const addToPortfolio = () => {
+    const newProject = {
+      id: Date.now(),
+      name: inputs.projectName,
+      capacity: inputs.capacityMW,
+      duration: inputs.durationHours,
+      capex: financials.totalCapex,
+      irr: financials.irr,
+      npv: financials.npv,
+      moic: financials.moic,
+      avgDSCR: financials.averageDSCR,
+      minDSCR: financials.minDSCR,
+      payback: financials.simplePayback,
+      inputs: { ...inputs },
+    };
+    setProjectPortfolio(prev => [...prev, newProject]);
+    showToast(`${inputs.projectName} added to portfolio`, "success");
+  };
+
+  const deleteProject = (id) => {
+    setProjectPortfolio(prev => prev.filter(p => p.id !== id));
+    showToast("Project removed", "success");
+  };
+
+  const loadProject = (project) => {
+    setInputs(project.inputs);
+    setTab("dashboard");
+    showToast(`Loaded ${project.name}`, "success");
+  };
+
+  const sortPortfolio = (key) => {
+    let direction = "desc";
+    if (sortConfig.key === key && sortConfig.direction === "desc") {
+      direction = "asc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedPortfolio = useMemo(() => {
+    const sorted = [...projectPortfolio];
+    sorted.sort((a, b) => {
+      if (sortConfig.direction === "asc") {
+        return a[sortConfig.key] > b[sortConfig.key] ? 1 : -1;
+      } else {
+        return a[sortConfig.key] < b[sortConfig.key] ? 1 : -1;
+      }
+    });
+    return sorted;
+  }, [projectPortfolio, sortConfig]);
+
+  // Sensitivity Analysis
+  const sensitivityData = useMemo(() => {
+    const revenueVariations = [-20, -10, 0, 10, 20];
+    const opexVariations = [-20, -10, 0, 10, 20];
+    const results = [];
+
+    revenueVariations.forEach(revVar => {
+      opexVariations.forEach(opexVar => {
+        const testInputs = {
+          ...inputs,
+          energyTrading_k: inputs.energyTrading_k * (1 + revVar / 100),
+          frequencyResponse_k: inputs.frequencyResponse_k * (1 + revVar / 100),
+          capacityMarket_k: inputs.capacityMarket_k * (1 + revVar / 100),
+          ancillaryServices_k: inputs.ancillaryServices_k * (1 + revVar / 100),
+          fixedOM_k: inputs.fixedOM_k * (1 + opexVar / 100),
+          variableOM_perMWh: inputs.variableOM_perMWh * (1 + opexVar / 100),
+          bessLTSA_k: inputs.bessLTSA_k * (1 + opexVar / 100),
+        };
+        const testCalc = calc(testInputs);
+        results.push({
+          revenueVar: revVar,
+          opexVar: opexVar,
+          irr: testCalc.irr,
+          npv: testCalc.npv,
+        });
+      });
+    });
+    return results;
+  }, [inputs]);
+
   const styles = `
     * { box-sizing: border-box; }
     .shell{ max-width:1200px; margin:40px auto; padding:0 20px; }
@@ -436,12 +465,6 @@ const BESSFinancialModel = () => {
     th,td{ padding:12px 14px; text-align:right; font-size:14px; }
     th:first-child, td:first-child{ text-align:left; }
     tbody tr:nth-child(even){ background:#fafafa; }
-    .upload-zone{ border:2px dashed #cbd5e1; border-radius:12px; padding:40px; text-align:center;
-      cursor:pointer; transition:.2s ease; }
-    .upload-zone:hover{ border-color:#2563eb; background:#f8fafc; }
-    .extraction-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px; margin-top:16px; }
-    .extracted-item{ background:#f0fdf4; border:1px solid #86efac; padding:12px; border-radius:8px; }
-    .extracted-item.missing{ background:#fef3c7; border-color:#fbbf24; }
     .badge{ display:inline-block; padding:4px 8px; border-radius:6px; font-size:11px;
       font-weight:700; text-transform:uppercase; }
     .badge.high{ background:#dcfce7; color:#166534; }
@@ -464,13 +487,26 @@ const BESSFinancialModel = () => {
     input[type="text"], input[type="number"], input[type="date"], select { width:100%; padding:8px 12px; border:1px solid #e5e7eb;
       border-radius:8px; font-size:14px; margin-top:4px; }
     label { display:block; font-weight:600; font-size:14px; margin-bottom:4px; color:#334155; }
-    .text-preview{ background:#f8fafc; border:1px solid #e5e7eb; border-radius:8px; padding:12px;
-      font-family:monospace; font-size:12px; max-height:150px; overflow-y:auto;
-      white-space:pre-wrap; word-break:break-word; margin-top:12px; }
     .groupHdr{ display:flex; align-items:center; justify-content:space-between; cursor:pointer; padding:8px 0; }
+    .memo-doc{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width:900px; margin:0 auto; background:white; padding:40px; line-height:1.6; }
+    .memo-header{ text-align:center; border-bottom:3px solid #2563eb; padding-bottom:20px; margin-bottom:30px; }
+    .memo-title{ font-size:32px; font-weight:800; color:#1e40af; margin:0; }
+    .memo-subtitle{ font-size:16px; color:#64748b; margin-top:8px; }
+    .memo-section{ margin-bottom:30px; }
+    .memo-section h2{ font-size:20px; font-weight:700; color:#1e40af; border-bottom:2px solid #e5e7eb; padding-bottom:8px; margin-bottom:16px; }
+    .memo-metrics{ display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; margin:20px 0; }
+    .memo-metric{ text-align:center; padding:16px; background:#f8fafc; border-radius:8px; }
+    .memo-metric-label{ font-size:11px; text-transform:uppercase; color:#64748b; font-weight:700; letter-spacing:0.5px; }
+    .memo-metric-value{ font-size:24px; font-weight:800; color:#1e40af; margin-top:4px; }
+    .memo-table{ width:100%; border-collapse:collapse; margin:16px 0; }
+    .memo-table th{ background:#f1f5f9; padding:12px; text-align:left; font-weight:700; color:#334155; border-bottom:2px solid #e5e7eb; }
+    .memo-table td{ padding:12px; border-bottom:1px solid #e5e7eb; }
+    .memo-table tr:last-child td{ border-bottom:none; }
+    .sensitivity-grid{ display:grid; grid-template-columns:repeat(6,1fr); gap:4px; margin-top:16px; }
+    .sensitivity-cell{ padding:8px; text-align:center; font-size:12px; font-weight:600; border-radius:4px; }
+    .sensitivity-header{ background:#f1f5f9; color:#334155; font-weight:700; }
   `;
 
-  // Revenue pie for Y1
   const revenueBreakdown = [
     { name: "Capacity Market", value: (inputs.capacityMarket_k || 0), color: "#2563eb" },
     { name: "Energy Trading", value: (inputs.energyTrading_k || 0), color: "#16a34a" },
@@ -478,7 +514,217 @@ const BESSFinancialModel = () => {
     { name: "Ancillary", value: (inputs.ancillaryServices_k || 0), color: "#f59e0b" },
   ];
 
-  // --- UI ---
+  const generateInvestmentMemo = () => {
+    const gearing = ((inputs.debtPercentage / 100) * 100).toFixed(0);
+    const equity = (100 - gearing);
+    
+    return (
+      <div className="memo-doc">
+        <div className="memo-header">
+          <div className="memo-title">{inputs.projectName} {inputs.capacityMW}MW BESS</div>
+          <div className="memo-subtitle">Investment Memorandum - {scenario.charAt(0).toUpperCase() + scenario.slice(1)} Case Scenario</div>
+          <div className="sub" style={{marginTop:12}}>Date: {new Date().toLocaleDateString('en-GB')}</div>
+        </div>
+
+        <div className="memo-section">
+          <h2>Executive Summary</h2>
+          <div className="memo-metrics">
+            <div className="memo-metric">
+              <div className="memo-metric-label">Total Investment</div>
+              <div className="memo-metric-value">£{financials.totalCapex.toFixed(0)}m</div>
+            </div>
+            <div className="memo-metric">
+              <div className="memo-metric-label">Project IRR</div>
+              <div className="memo-metric-value">{financials.irr.toFixed(1)}%</div>
+            </div>
+            <div className="memo-metric">
+              <div className="memo-metric-label">NPV @ {inputs.discountRate}%</div>
+              <div className="memo-metric-value">£{financials.npv.toFixed(1)}m</div>
+            </div>
+            <div className="memo-metric">
+              <div className="memo-metric-label">Equity Multiple</div>
+              <div className="memo-metric-value">{financials.moic.toFixed(2)}x</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="memo-section">
+          <h2>Project Overview</h2>
+          <p>The {inputs.projectName} Battery Energy Storage System (BESS) is a utility-scale {inputs.capacityMW}MW / {(inputs.capacityMW * inputs.durationHours).toFixed(0)}MWh project providing critical grid services to the UK electricity market. The project delivers value through capacity market contracts, Dynamic Containment services, energy arbitrage, and ancillary services.</p>
+          
+          <p style={{marginTop:12}}><strong>Financial Close:</strong> {new Date(inputs.fcDate).toLocaleDateString('en-GB')}<br/>
+          <strong>Commercial Operation Date:</strong> {new Date(inputs.codDate).toLocaleDateString('en-GB')}<br/>
+          <strong>Project Life:</strong> {inputs.projectLifeYears} years</p>
+        </div>
+
+        <div className="memo-section">
+          <h2>Key Investment Metrics</h2>
+          <table className="memo-table">
+            <tbody>
+              <tr>
+                <td><strong>Installed Capacity</strong></td>
+                <td style={{textAlign:'right'}}>{inputs.capacityMW}MW / {(inputs.capacityMW * inputs.durationHours).toFixed(0)}MWh</td>
+              </tr>
+              <tr>
+                <td><strong>EV/MW</strong></td>
+                <td style={{textAlign:'right'}}>£{financials.evPerMW.toFixed(0)}k</td>
+              </tr>
+              <tr>
+                <td><strong>Gearing</strong></td>
+                <td style={{textAlign:'right'}}>{gearing}% Debt / {equity}% Equity</td>
+              </tr>
+              <tr>
+                <td><strong>Average DSCR</strong></td>
+                <td style={{textAlign:'right'}}>{financials.averageDSCR.toFixed(2)}x</td>
+              </tr>
+              <tr>
+                <td><strong>Minimum DSCR</strong></td>
+                <td style={{textAlign:'right'}}>{financials.minDSCR.toFixed(2)}x</td>
+              </tr>
+              <tr>
+                <td><strong>Debt Tenor</strong></td>
+                <td style={{textAlign:'right'}}>{inputs.debtTenor} years</td>
+              </tr>
+              <tr>
+                <td><strong>Simple Payback</strong></td>
+                <td style={{textAlign:'right'}}>{financials.simplePayback.toFixed(1)} years</td>
+              </tr>
+              <tr>
+                <td><strong>Discounted Payback</strong></td>
+                <td style={{textAlign:'right'}}>{financials.discountedPayback.toFixed(1)} years</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="memo-section">
+          <h2>Revenue Profile (Year 1)</h2>
+          <table className="memo-table">
+            <thead>
+              <tr>
+                <th>Revenue Stream</th>
+                <th style={{textAlign:'right'}}>£k/MW/yr</th>
+                <th style={{textAlign:'right'}}>Total £m</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Capacity Market (T-4)</td>
+                <td style={{textAlign:'right'}}>{inputs.capacityMarket_k.toFixed(1)}</td>
+                <td style={{textAlign:'right'}}>{(inputs.capacityMarket_k * inputs.capacityMW / 1000).toFixed(1)}</td>
+              </tr>
+              <tr>
+                <td>Energy Trading (Arbitrage)</td>
+                <td style={{textAlign:'right'}}>{inputs.energyTrading_k.toFixed(1)}</td>
+                <td style={{textAlign:'right'}}>{(inputs.energyTrading_k * inputs.capacityMW / 1000).toFixed(1)}</td>
+              </tr>
+              <tr>
+                <td>Frequency Response (DC/DM/DR)</td>
+                <td style={{textAlign:'right'}}>{inputs.frequencyResponse_k.toFixed(1)}</td>
+                <td style={{textAlign:'right'}}>{(inputs.frequencyResponse_k * inputs.capacityMW / 1000).toFixed(1)}</td>
+              </tr>
+              <tr>
+                <td>Ancillary Services</td>
+                <td style={{textAlign:'right'}}>{inputs.ancillaryServices_k.toFixed(1)}</td>
+                <td style={{textAlign:'right'}}>{(inputs.ancillaryServices_k * inputs.capacityMW / 1000).toFixed(1)}</td>
+              </tr>
+              <tr style={{fontWeight:700, background:'#f8fafc'}}>
+                <td>Total Annual Revenue</td>
+                <td style={{textAlign:'right'}}>{(inputs.energyTrading_k + inputs.frequencyResponse_k + inputs.capacityMarket_k + inputs.ancillaryServices_k).toFixed(1)}</td>
+                <td style={{textAlign:'right'}}>{financials.years[0]?.totalRevenue.toFixed(1)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={{marginTop:12, fontSize:13, color:'#64748b'}}>Revenue escalation: {inputs.revenueEscalation}% p.a. for first {inputs.contractLength_years} years</p>
+        </div>
+
+        <div className="memo-section">
+          <h2>Financial Structure</h2>
+          <table className="memo-table">
+            <tbody>
+              <tr>
+                <td><strong>Total CAPEX</strong></td>
+                <td style={{textAlign:'right'}}>£{financials.totalCapex.toFixed(1)}m</td>
+              </tr>
+              <tr>
+                <td>Senior Debt ({gearing}%)</td>
+                <td style={{textAlign:'right'}}>£{financials.debtAmount.toFixed(1)}m</td>
+              </tr>
+              <tr>
+                <td>Equity ({equity}%)</td>
+                <td style={{textAlign:'right'}}>£{financials.equityAmount.toFixed(1)}m</td>
+              </tr>
+              <tr style={{marginTop:16}}>
+                <td><strong>Interest Rate</strong></td>
+                <td style={{textAlign:'right'}}>{inputs.baseRate.toFixed(2)}% + {inputs.interestMargin.toFixed(2)}% = {(inputs.baseRate + inputs.interestMargin).toFixed(2)}%</td>
+              </tr>
+              <tr>
+                <td><strong>Annual Debt Service</strong></td>
+                <td style={{textAlign:'right'}}>£{financials.annualDebtService.toFixed(1)}m</td>
+              </tr>
+              {inputs.refinancing && (
+                <tr>
+                  <td>Refinancing (Year {inputs.refiAfterCOD_years})</td>
+                  <td style={{textAlign:'right'}}>{inputs.refiRate.toFixed(2)}% p.a.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="memo-section">
+          <h2>Risk Assessment</h2>
+          <table className="memo-table">
+            <tbody>
+              <tr>
+                <td><strong>DSCR Covenant</strong></td>
+                <td style={{textAlign:'right'}}>{inputs.dscrCovenant.toFixed(2)}x</td>
+              </tr>
+              <tr>
+                <td><strong>Actual Minimum DSCR</strong></td>
+                <td style={{textAlign:'right', color: financials.minDSCR >= inputs.dscrCovenant ? '#16a34a' : '#dc2626', fontWeight:700}}>
+                  {financials.minDSCR.toFixed(2)}x {financials.minDSCR >= inputs.dscrCovenant ? '✓' : '✗'}
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Degradation</strong></td>
+                <td style={{textAlign:'right'}}>{inputs.degradationRate_pct}% p.a.</td>
+              </tr>
+              <tr>
+                <td><strong>Augmentation</strong></td>
+                <td style={{textAlign:'right'}}>Year {inputs.augmentationYear} ({inputs.augmentationCost_pctOfBattery}% of battery cost)</td>
+              </tr>
+              <tr>
+                <td><strong>Availability</strong></td>
+                <td style={{textAlign:'right'}}>{inputs.availability_pct}%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="memo-section">
+          <h2>Returns Summary</h2>
+          <div style={{background:'#f8fafc', padding:20, borderRadius:12, border:'2px solid #e5e7eb'}}>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20}}>
+              <div>
+                <div style={{fontSize:13, color:'#64748b', fontWeight:700, textTransform:'uppercase'}}>Equity IRR</div>
+                <div style={{fontSize:36, fontWeight:800, color: financials.irr >= inputs.targetEquityIRR ? '#16a34a' : '#dc2626'}}>
+                  {financials.irr.toFixed(1)}%
+                </div>
+                <div style={{fontSize:13, color:'#64748b', marginTop:4}}>Target: {inputs.targetEquityIRR}%</div>
+              </div>
+              <div>
+                <div style={{fontSize:13, color:'#64748b', fontWeight:700, textTransform:'uppercase'}}>MOIC</div>
+                <div style={{fontSize:36, fontWeight:800, color:'#1e40af'}}>{financials.moic.toFixed(2)}x</div>
+                <div style={{fontSize:13, color:'#64748b', marginTop:4}}>Over {inputs.projectLifeYears} years</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <style>{styles}</style>
@@ -499,11 +745,9 @@ const BESSFinancialModel = () => {
             </div>
           </div>
           <div className="toolbar">
-            <button className="btn" onClick={() => showToast('Use Export in your existing flow', 'success')}><FileSpreadsheet size={18}/> Quick Export</button>
-            <button className="btn secondary" onClick={() => showToast('Use Detailed Export in your existing flow', 'success')}><FileText size={18}/> Detailed Export</button>
+            <button className="btn" onClick={() => setShowInvestmentMemo(true)}><FileText size={18}/> Investment Memo</button>
             <button className="btn" onClick={() => setShowOptimizer(true)}><Sliders size={18}/> Optimize</button>
-            <button className="btn" onClick={() => setTab('portfolio')}><Plus size={18}/> Add to Portfolio</button>
-            <button className="btn primary"><Download size={18}/> Share</button>
+            <button className="btn" onClick={addToPortfolio}><Plus size={18}/> Add to Portfolio</button>
           </div>
         </div>
 
@@ -527,7 +771,7 @@ const BESSFinancialModel = () => {
           </div>
 
           <div className="tabs">
-            {["dashboard","upload","inputs","portfolio","cashflow","sensitivity"].map(t => (
+            {["dashboard","inputs","portfolio","cashflow","sensitivity"].map(t => (
               <button key={t} className={`tab ${t===tab?"active":""}`} onClick={()=>setTab(t)}>
                 {t[0].toUpperCase()+t.slice(1)}
               </button>
@@ -581,6 +825,50 @@ const BESSFinancialModel = () => {
                   </div>
                 </div>
               </div>
+
+              <div className="card blue">
+                <div className="k">
+                  <Target size={24} />
+                  <div>
+                    <div className="title">MOIC</div>
+                    <div className="val">{financials.moic.toFixed(2)}x</div>
+                    <div className="sub">Equity Multiple</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card green">
+                <div className="k">
+                  <Clock size={24} />
+                  <div>
+                    <div className="title">Payback</div>
+                    <div className="val">{financials.simplePayback.toFixed(1)}y</div>
+                    <div className="sub">Disc. {financials.discountedPayback.toFixed(1)}y</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card purple">
+                <div className="k">
+                  <DollarSign size={24} />
+                  <div>
+                    <div className="title">EV/MW</div>
+                    <div className="val">£{financials.evPerMW.toFixed(0)}k</div>
+                    <div className="sub">Per MW Installed</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card orange">
+                <div className="k">
+                  <Percent size={24} />
+                  <div>
+                    <div className="title">Equity Req'd</div>
+                    <div className="val">£{financials.equityAmount.toFixed(0)}m</div>
+                    <div className="sub">{100 - inputs.debtPercentage}% of Capex</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="grid" style={{marginTop:8}}>
@@ -599,7 +887,7 @@ const BESSFinancialModel = () => {
               </div>
 
               <div className="panel chart">
-                <div style={{fontWeight:700, marginBottom:8}}>25-Year Cash Flow</div>
+                <div style={{fontWeight:700, marginBottom:8}}>25-Year Cash Flow Profile</div>
                 <ResponsiveContainer width="100%" height={320}>
                   <AreaChart data={financials.years}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -612,13 +900,41 @@ const BESSFinancialModel = () => {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
+
+              <div className="panel chart">
+                <div style={{fontWeight:700, marginBottom:8}}>Debt Service Coverage Ratio</div>
+                <ResponsiveContainer width="100%" height={320}>
+                  <LineChart data={financials.years.slice(0, inputs.debtTenor)}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="year" />
+                    <YAxis domain={[0, 2]} />
+                    <Tooltip formatter={(v)=>`${Number(v).toFixed(2)}x`} />
+                    <Legend />
+                    <Line type="monotone" dataKey="dscr" stroke="#16a34a" strokeWidth={2} name="DSCR" dot={{r:3}} />
+                    <Line type="monotone" dataKey={() => inputs.dscrCovenant} stroke="#dc2626" strokeWidth={2} strokeDasharray="5 5" name="Min Covenant" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="panel chart">
+                <div style={{fontWeight:700, marginBottom:8}}>Capacity Degradation & Augmentation</div>
+                <ResponsiveContainer width="100%" height={320}>
+                  <LineChart data={financials.years}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="year" />
+                    <YAxis />
+                    <Tooltip formatter={(v)=>`${Number(v).toFixed(1)}MW`} />
+                    <Legend />
+                    <Line type="monotone" dataKey="effectiveCapacity" stroke="#8b5cf6" strokeWidth={2} name="Effective Capacity" dot={{r:2}} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </>
         )}
 
         {tab === "inputs" && (
           <div className="grid" style={{marginTop:16}}>
-            {/* Left column: Tabs & CSV import */}
             <div className="panel" style={{gridColumn:"span 4"}}>
               <div style={{fontWeight:800, marginBottom:8}}>Input Categories</div>
               {[
@@ -652,10 +968,8 @@ const BESSFinancialModel = () => {
               )}
             </div>
 
-            {/* Right column: Fields by group with collapsible sections */}
             <div className="panel" style={{gridColumn:"span 8"}}>
 
-              {/* PROJECT */}
               {activeSubtab === 'project' && (
                 <div>
                   <div className="groupHdr" onClick={()=>setOpen(o=>({...o, project:!o.project}))}>
@@ -665,7 +979,7 @@ const BESSFinancialModel = () => {
                   {open.project && (
                     <div className="grid">
                       <div style={{gridColumn:'span 6'}}>
-                        <label title="Site or project name">Site name</label>
+                        <label>Site name</label>
                         <input type="text" value={inputs.projectName} onChange={e=>update('projectName', e.target.value)} />
                       </div>
                       <div style={{gridColumn:'span 3'}}>
@@ -693,7 +1007,6 @@ const BESSFinancialModel = () => {
                 </div>
               )}
 
-              {/* TECHNICAL */}
               {activeSubtab === 'technical' && (
                 <div>
                   <div className="groupHdr" onClick={()=>setOpen(o=>({...o, technical:!o.technical}))}>
@@ -721,7 +1034,6 @@ const BESSFinancialModel = () => {
                 </div>
               )}
 
-              {/* REVENUES */}
               {activeSubtab === 'revenues' && (
                 <div>
                   <div className="groupHdr" onClick={()=>setOpen(o=>({...o, revenues:!o.revenues}))}>
@@ -730,7 +1042,15 @@ const BESSFinancialModel = () => {
                   </div>
                   {open.revenues && (
                     <div className="grid">
-                      {[['energyTrading_k','Energy trading',1],['frequencyResponse_k','Frequency response',1],['capacityMarket_k','Capacity market (T-4)',1],['ancillaryServices_k','Ancillary services',1],['floorRevenue_k','Floor revenue (if contracted)',1],['contractLength_years','Contract length (years)',1],['revenueEscalation','Revenue escalation (% p.a.)',0.1]].map(([k,l,s])=> (
+                      {[
+                        ['energyTrading_k','Energy trading',1],
+                        ['frequencyResponse_k','Frequency response',1],
+                        ['capacityMarket_k','Capacity market (T-4)',1],
+                        ['ancillaryServices_k','Ancillary services',1],
+                        ['floorRevenue_k','Floor revenue (if contracted)',1],
+                        ['contractLength_years','Contract length (years)',1],
+                        ['revenueEscalation','Revenue escalation (% p.a.)',0.1]
+                      ].map(([k,l,s])=> (
                         <div key={k} style={{gridColumn:'span 4'}}>
                           <label>{l}</label>
                           <input type="number" step={s} value={inputs[k]} onChange={e=>update(k,e.target.value)} />
@@ -741,16 +1061,25 @@ const BESSFinancialModel = () => {
                 </div>
               )}
 
-              {/* OPEX */}
               {activeSubtab === 'opex' && (
                 <div>
-                  <div className="groupHdr" onClick={()=>setOpen(o=>({...o, opex:!o.pex}))}>
+                  <div className="groupHdr" onClick={()=>setOpen(o=>({...o, opex:!o.opex}))}>
                     <div style={{fontWeight:800}}>Operating Costs</div>
                     {open.opex ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}    
                   </div>
                   {open.opex && (
                     <div className="grid">
-                      {[['fixedOM_k','Fixed O&M (£k/MW/yr)',0.1],['variableOM_perMWh','Variable O&M (€/MWh)',0.1],['bessLTSA_k','BESS LTSA (£k/MW/yr)',0.1],['ltsaStartYear','LTSA start year',1],['gridOM_k','Grid O&M (£k/MW/yr)',0.1],['insurance_pctCapex','Insurance (% of capex)',0.1],['businessRates_pctCapex','Business rates (% of capex)',0.1],['assetMgmt_pctCapex','Asset management (% of capex)',0.1],['landLease_k','Land lease (£k/MW/yr)',0.1]].map(([k,l,s])=> (
+                      {[
+                        ['fixedOM_k','Fixed O&M (£k/MW/yr)',0.1],
+                        ['variableOM_perMWh','Variable O&M (£/MWh)',0.1],
+                        ['bessLTSA_k','BESS LTSA (£k/MW/yr)',0.1],
+                        ['ltsaStartYear','LTSA start year',1],
+                        ['gridOM_k','Grid O&M (£k/MW/yr)',0.1],
+                        ['insurance_pctCapex','Insurance (% of capex)',0.1],
+                        ['businessRates_pctCapex','Business rates (% of capex)',0.1],
+                        ['assetMgmt_pctCapex','Asset management (% of capex)',0.1],
+                        ['landLease_k','Land lease (£k/MW/yr)',0.1]
+                      ].map(([k,l,s])=> (
                         <div key={k} style={{gridColumn:'span 4'}}>
                           <label>{l}</label>
                           <input type="number" step={s} value={inputs[k]} onChange={e=>update(k,e.target.value)} />
@@ -761,7 +1090,6 @@ const BESSFinancialModel = () => {
                 </div>
               )}
 
-              {/* CAPEX */}
               {activeSubtab === 'capex' && (
                 <div>
                   <div className="groupHdr" onClick={()=>setOpen(o=>({...o, capex:!o.capex}))}>
@@ -781,7 +1109,6 @@ const BESSFinancialModel = () => {
                 </div>
               )}
 
-              {/* DEBT & REFI */}
               {activeSubtab === 'debt' && (
                 <div>
                   <div className="groupHdr" onClick={()=>setOpen(o=>({...o, debt:!o.debt}))}>
@@ -798,7 +1125,7 @@ const BESSFinancialModel = () => {
                       ))}
                       <div style={{gridColumn:'span 12', display:'flex', alignItems:'center', gap:8, marginTop:8}}>
                         <input type="checkbox" checked={!!inputs.refinancing} onChange={(e)=>update('refinancing', e.target.checked)} />
-                        <label>Enable Refinancing</label>
+                        <label style={{margin:0}}>Enable Refinancing</label>
                       </div>
                       {inputs.refinancing && (
                         <>
@@ -817,7 +1144,6 @@ const BESSFinancialModel = () => {
                 </div>
               )}
 
-              {/* TAX */}
               {activeSubtab === 'tax' && (
                 <div>
                   <div className="groupHdr" onClick={()=>setOpen(o=>({...o, tax:!o.tax}))}>
@@ -858,7 +1184,6 @@ const BESSFinancialModel = () => {
                 </div>
               )}
 
-              {/* RETURNS */}
               {activeSubtab === 'returns' && (
                 <div>
                   <div className="groupHdr" onClick={()=>setOpen(o=>({...o, returns:!o.returns}))}>
@@ -882,25 +1207,105 @@ const BESSFinancialModel = () => {
           </div>
         )}
 
-        {/* Other tabs: keep your existing portfolio/cashflow/sensitivity UI or adapt as needed */}
+        {tab === "portfolio" && (
+          <div style={{marginTop:16}}>
+            <div className="panel" style={{marginBottom:16}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <div>
+                  <div style={{fontWeight:800, fontSize:18}}>Project Portfolio</div>
+                  <div className="sub">{projectPortfolio.length} project{projectPortfolio.length !== 1 ? 's' : ''} in portfolio</div>
+                </div>
+                {projectPortfolio.length > 0 && (
+                  <button className="btn" onClick={() => showToast('Portfolio export coming soon', 'success')}>
+                    <Download size={18}/> Export Portfolio
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {projectPortfolio.length === 0 ? (
+              <div className="panel" style={{textAlign:'center', padding:60}}>
+                <Battery size={48} color="#cbd5e1" style={{margin:'0 auto 16px'}}/>
+                <div style={{fontSize:18, fontWeight:700, color:'#64748b', marginBottom:8}}>No projects yet</div>
+                <div style={{color:'#94a3b8', marginBottom:20}}>Add projects to your portfolio to compare returns and manage multiple investments</div>
+                <button className="btn primary" onClick={() => setTab('dashboard')}>
+                  <Plus size={18}/> Create First Project
+                </button>
+              </div>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th onClick={() => sortPortfolio('name')} style={{cursor:'pointer'}}>Project</th>
+                      <th onClick={() => sortPortfolio('capacity')} style={{cursor:'pointer'}}>Capacity</th>
+                      <th onClick={() => sortPortfolio('capex')} style={{cursor:'pointer'}}>CAPEX</th>
+                      <th onClick={() => sortPortfolio('irr')} style={{cursor:'pointer'}}>IRR</th>
+                      <th onClick={() => sortPortfolio('npv')} style={{cursor:'pointer'}}>NPV</th>
+                      <th onClick={() => sortPortfolio('moic')} style={{cursor:'pointer'}}>MOIC</th>
+                      <th onClick={() => sortPortfolio('avgDSCR')} style={{cursor:'pointer'}}>Avg DSCR</th>
+                      <th onClick={() => sortPortfolio('payback')} style={{cursor:'pointer'}}>Payback</th>
+                      <th style={{textAlign:'center'}}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedPortfolio.map((project) => {
+                      const irrClass = project.irr >= 15 ? 'excellent' : project.irr >= 10 ? 'good' : 'poor';
+                      return (
+                        <tr key={project.id} className={`portfolio-row ${irrClass}`} onClick={() => loadProject(project)}>
+                          <td><strong>{project.name}</strong></td>
+                          <td>{project.capacity}MW / {(project.capacity * project.duration).toFixed(0)}MWh</td>
+                          <td>£{project.capex.toFixed(0)}m</td>
+                          <td style={{fontWeight:700, color: project.irr >= 15 ? '#16a34a' : project.irr >= 10 ? '#f59e0b' : '#dc2626'}}>
+                            {project.irr.toFixed(1)}%
+                          </td>
+                          <td>£{project.npv.toFixed(1)}m</td>
+                          <td>{project.moic.toFixed(2)}x</td>
+                          <td>{project.avgDSCR.toFixed(2)}x</td>
+                          <td>{project.payback.toFixed(1)}y</td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <div className="action-btns">
+                              <button className="icon-btn" onClick={() => loadProject(project)} title="Load project">
+                                <Eye size={16} />
+                              </button>
+                              <button className="icon-btn" onClick={() => deleteProject(project.id)} title="Delete project">
+                                <Trash2 size={16} color="#dc2626" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {tab === "cashflow" && (
           <div className="table-wrap" style={{marginTop:16}}>
             <table>
               <thead>
                 <tr>
-                  {["Year","Revenue","OPEX","EBITDA","FCF","DSCR"].map(h=> (<th key={h}>{h}</th>))}
+                  {["Year","Revenue","OPEX","EBITDA","Interest","Principal","Augmentation","Tax","Net Income","FCF","Cumulative FCF","DSCR"].map(h=> (<th key={h}>{h}</th>))}
                 </tr>
               </thead>
               <tbody>
                 {financials.years.map((y,i)=> (
-                  <tr key={i}>
+                  <tr key={i} style={y.augmentation > 0 ? {background:'#fef3c7'} : {}}>
                     <td><strong>{y.year}</strong></td>
                     <td>£{y.totalRevenue.toFixed(1)}m</td>
                     <td>£{y.totalOpex.toFixed(1)}m</td>
                     <td>£{y.ebitda.toFixed(1)}m</td>
-                    <td>£{y.freeCashFlow.toFixed(1)}m</td>
-                    <td>{isFinite(y.dscr)? y.dscr.toFixed(2): '—'}x</td>
+                    <td>£{y.interest.toFixed(1)}m</td>
+                    <td>£{y.principal.toFixed(1)}m</td>
+                    <td>{y.augmentation > 0 ? `£${y.augmentation.toFixed(1)}m` : '—'}</td>
+                    <td>£{y.taxPayment.toFixed(1)}m</td>
+                    <td>£{y.netIncome.toFixed(1)}m</td>
+                    <td style={{fontWeight:700, color: y.freeCashFlow >= 0 ? '#16a34a' : '#dc2626'}}>£{y.freeCashFlow.toFixed(1)}m</td>
+                    <td style={{fontWeight:700}}>£{y.cumulativeFCF.toFixed(1)}m</td>
+                    <td style={{color: y.dscr >= inputs.dscrCovenant ? '#16a34a' : '#dc2626'}}>{isFinite(y.dscr)? y.dscr.toFixed(2): '—'}x</td>
                   </tr>
                 ))}
               </tbody>
@@ -908,29 +1313,130 @@ const BESSFinancialModel = () => {
           </div>
         )}
 
-        {/* Minimal Optimizer modal retained */}
+        {tab === "sensitivity" && (
+          <div style={{marginTop:16}}>
+            <div className="panel" style={{marginBottom:16}}>
+              <div style={{fontWeight:800, fontSize:18, marginBottom:8}}>Sensitivity Analysis</div>
+              <div className="sub">IRR sensitivity to revenue and operating cost variations</div>
+            </div>
+
+            <div className="panel">
+              <div style={{fontWeight:700, marginBottom:12}}>IRR Sensitivity Matrix (%)</div>
+              <div className="sensitivity-grid">
+                <div className="sensitivity-cell sensitivity-header">Revenue →<br/>OPEX ↓</div>
+                {[-20, -10, 0, 10, 20].map(rev => (
+                  <div key={rev} className="sensitivity-cell sensitivity-header">{rev > 0 ? '+' : ''}{rev}%</div>
+                ))}
+                
+                {[20, 10, 0, -10, -20].map(opex => (
+                  <React.Fragment key={opex}>
+                    <div className="sensitivity-cell sensitivity-header">{opex > 0 ? '+' : ''}{opex}%</div>
+                    {[-20, -10, 0, 10, 20].map(rev => {
+                      const dataPoint = sensitivityData.find(d => d.revenueVar === rev && d.opexVar === opex);
+                      const irr = dataPoint ? dataPoint.irr : 0;
+                      const color = irr >= 15 ? '#dcfce7' : irr >= 10 ? '#fef3c7' : irr >= 5 ? '#fed7aa' : '#fecaca';
+                      return (
+                        <div key={`${rev}-${opex}`} className="sensitivity-cell" style={{background: color}}>
+                          {irr.toFixed(1)}%
+                        </div>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </div>
+              <div style={{marginTop:16, fontSize:13, color:'#64748b'}}>
+                Base case IRR: {financials.irr.toFixed(1)}% (center cell)
+              </div>
+            </div>
+
+            <div className="grid" style={{marginTop:16}}>
+              <div className="panel chart">
+                <div style={{fontWeight:700, marginBottom:8}}>IRR vs Revenue Variation</div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={sensitivityData.filter(d => d.opexVar === 0)}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="revenueVar" label={{value: 'Revenue Variation (%)', position: 'insideBottom', offset: -5}} />
+                    <YAxis label={{value: 'IRR (%)', angle: -90, position: 'insideLeft'}} />
+                    <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
+                    <Legend />
+                    <Line type="monotone" dataKey="irr" stroke="#2563eb" strokeWidth={3} name="IRR" dot={{r:5}} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="panel chart">
+                <div style={{fontWeight:700, marginBottom:8}}>IRR vs OPEX Variation</div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={sensitivityData.filter(d => d.revenueVar === 0)}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="opexVar" label={{value: 'OPEX Variation (%)', position: 'insideBottom', offset: -5}} />
+                    <YAxis label={{value: 'IRR (%)', angle: -90, position: 'insideLeft'}} />
+                    <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
+                    <Legend />
+                    <Line type="monotone" dataKey="irr" stroke="#16a34a" strokeWidth={3} name="IRR" dot={{r:5}} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="panel" style={{marginTop:16}}>
+              <div style={{fontWeight:700, marginBottom:12}}>Key Observations</div>
+              <ul style={{marginLeft:20, color:'#334155', lineHeight:1.8}}>
+                <li>A <strong>10% increase in revenue</strong> improves IRR to <strong>{sensitivityData.find(d => d.revenueVar === 10 && d.opexVar === 0)?.irr.toFixed(1)}%</strong></li>
+                <li>A <strong>10% increase in OPEX</strong> reduces IRR to <strong>{sensitivityData.find(d => d.revenueVar === 0 && d.opexVar === 10)?.irr.toFixed(1)}%</strong></li>
+                <li>Revenue sensitivity is <strong>{Math.abs((sensitivityData.find(d => d.revenueVar === 10 && d.opexVar === 0)?.irr || 0) - financials.irr).toFixed(1)} percentage points per 10% change</strong></li>
+                <li>OPEX sensitivity is <strong>{Math.abs(financials.irr - (sensitivityData.find(d => d.revenueVar === 0 && d.opexVar === 10)?.irr || 0)).toFixed(1)} percentage points per 10% change</strong></li>
+                <li>Project remains above {inputs.targetEquityIRR}% target IRR unless revenue drops below <strong>{[-20,-10,0,10,20].find(v => (sensitivityData.find(d => d.revenueVar === v && d.opexVar === 0)?.irr || 0) < inputs.targetEquityIRR) || 'never'}%</strong></li>
+              </ul>
+            </div>
+          </div>
+        )}
+
         {showOptimizer && (
           <div className="modal-backdrop" onClick={()=>setShowOptimizer(false)}>
             <div className="panel" style={{maxWidth:800, width:"100%", background:"white"}} onClick={e=>e.stopPropagation()}>
               <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10}}>
                 <div style={{fontWeight:800, fontSize:18}}>Debt Optimization</div>
-                <button className="btn" onClick={()=>setShowOptimizer(false)}>Close</button>
+                <button className="btn" onClick={()=>setShowOptimizer(false)}><X size={18}/></button>
               </div>
-              {/* Simple suggestion: align debt to max gearing if DSCR allows */}
               <div style={{padding:20, textAlign:'center'}}>
-                <div style={{fontSize:14, color:'#64748b', marginBottom:8}}>Suggested Debt</div>
+                <div style={{fontSize:14, color:'#64748b', marginBottom:8}}>Recommended Debt Level</div>
                 <div style={{fontSize:42, fontWeight:800}}>{Math.min(inputs.debtPercentage, inputs.maxGearing_pct)}%</div>
-                <div style={{color:'#64748b'}}>Covenant {inputs.dscrCovenant}x • Max Gearing {inputs.maxGearing_pct}%</div>
+                <div style={{color:'#64748b', marginTop:8}}>Current DSCR: {financials.averageDSCR.toFixed(2)}x • Covenant: {inputs.dscrCovenant}x</div>
+                <div style={{color:'#64748b'}}>Max Gearing Limit: {inputs.maxGearing_pct}%</div>
+              </div>
+              <div style={{background:'#f8fafc', padding:16, borderRadius:8, marginBottom:16}}>
+                <div style={{fontSize:13, color:'#334155'}}>
+                  <strong>Analysis:</strong> Your project has a DSCR of {financials.averageDSCR.toFixed(2)}x, which is {financials.averageDSCR >= inputs.dscrCovenant ? 'above' : 'below'} the covenant requirement of {inputs.dscrCovenant}x. 
+                  {financials.averageDSCR > inputs.dscrCovenant + 0.2 && ' You may have headroom to increase debt levels.'}
+                  {financials.averageDSCR < inputs.dscrCovenant && ' Consider reducing debt to meet covenant requirements.'}
+                </div>
               </div>
               <button className="btn primary" style={{width:"100%"}}
-                onClick={()=>{setInputs(p=>({...p, debtPercentage: Math.min(p.debtPercentage, p.maxGearing_pct)})); setShowOptimizer(false); showToast('Debt updated', 'success');}}>
-                Apply Suggestion
+                onClick={()=>{setInputs(p=>({...p, debtPercentage: Math.min(p.debtPercentage, p.maxGearing_pct)})); setShowOptimizer(false); showToast('Debt structure updated', 'success');}}>
+                Apply Recommendation
               </button>
             </div>
           </div>
         )}
 
-        {/* IRR details modal (kept minimal) */}
+        {showInvestmentMemo && (
+          <div className="modal-backdrop" onClick={()=>setShowInvestmentMemo(false)}>
+            <div className="panel" style={{maxWidth:1000, width:"100%", background:"white", maxHeight:'90vh', overflow:'auto'}} onClick={e=>e.stopPropagation()}>
+              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, position:'sticky', top:0, background:'white', zIndex:10, paddingBottom:16, borderBottom:'1px solid #e5e7eb'}}>
+                <div style={{fontWeight:800, fontSize:20}}>Investment Memorandum</div>
+                <div style={{display:'flex', gap:8}}>
+                  <button className="btn" onClick={() => showToast('PDF export coming soon', 'success')}>
+                    <Download size={18}/> Export PDF
+                  </button>
+                  <button className="btn" onClick={()=>setShowInvestmentMemo(false)}><X size={18}/></button>
+                </div>
+              </div>
+              {generateInvestmentMemo()}
+            </div>
+          </div>
+        )}
+
         {showIRRCalculation && (
           <div className="modal-backdrop" onClick={()=>setShowIRRCalculation(false)}>
             <div className="panel" style={{maxWidth:900, width:"100%", background:"white", maxHeight:'85vh', overflow:'auto'}} onClick={e=>e.stopPropagation()}>
@@ -939,7 +1445,7 @@ const BESSFinancialModel = () => {
                   <div style={{fontWeight:800, fontSize:18}}>IRR Calculation Breakdown</div>
                   <div style={{color:'#64748b', fontSize:14, marginTop:4}}>How the {financials.irr.toFixed(2)}% IRR was calculated</div>
                 </div>
-                <button className="btn" onClick={()=>setShowIRRCalculation(false)}>Close</button>
+                <button className="btn" onClick={()=>setShowIRRCalculation(false)}><X size={18}/></button>
               </div>
               <div className="table-wrap">
                 <table>
@@ -958,7 +1464,7 @@ const BESSFinancialModel = () => {
                       <td style={{textAlign:'center'}}>1.0000</td>
                       <td style={{textAlign:'center', color:'#dc2626'}}>-£{financials.equityAmount.toFixed(2)}m</td>
                     </tr>
-                    {financials.years.slice(0,10).map((y) => {
+                    {financials.years.slice(0,15).map((y) => {
                       const df = 1 / Math.pow(1 + financials.irr / 100, y.yearNum);
                       const pv = y.freeCashFlow * df;
                       return (
@@ -970,13 +1476,20 @@ const BESSFinancialModel = () => {
                         </tr>
                       );
                     })}
-                    <tr><td colSpan={4} style={{textAlign:'center', padding:8, color:'#64748b'}}>... {financials.years.length - 10} more years ...</td></tr>
+                    <tr><td colSpan={4} style={{textAlign:'center', padding:8, color:'#64748b'}}>... {financials.years.length - 15} more years ...</td></tr>
                     <tr style={{background:'#dcfce7', fontWeight:700}}>
-                      <td colSpan={3}><strong>Sum of Present Values (NPV)</strong></td>
+                      <td colSpan={3}><strong>Sum of Present Values (NPV @ IRR)</strong></td>
                       <td style={{textAlign:'center'}}>≈ £0.00m</td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+              <div style={{marginTop:16, padding:16, background:'#f8fafc', borderRadius:8}}>
+                <div style={{fontWeight:700, marginBottom:8}}>IRR Definition</div>
+                <p style={{margin:0, fontSize:14, color:'#334155', lineHeight:1.6}}>
+                  The Internal Rate of Return (IRR) is the discount rate at which the Net Present Value (NPV) of all cash flows equals zero. 
+                  At {financials.irr.toFixed(2)}%, the present value of future equity cash flows exactly equals the initial equity investment of £{financials.equityAmount.toFixed(1)}m.
+                </p>
               </div>
             </div>
           </div>
