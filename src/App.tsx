@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import BESSFinancialModel, { defaultInputs } from "./BESSFinancialModel.jsx";
 import React, { useEffect, useMemo, useState } from 'react';
+import { Battery, PoundSterling, TrendingUp, Zap, Calculator, Target, Clock, DollarSign } from 'lucide-react';
 
 type Project = {
   id: number;
@@ -52,42 +53,97 @@ function ProjectsDashboard() {
     <div className="shell">
       <div className="topbar">
         <div className="brand">
-          <h1>Projects</h1>
+          <Battery size={28} color="#2563eb" />
+          <div>
+            <h1>Projects Dashboard</h1>
+            <div className="sub">Portfolio overview and quick actions</div>
+          </div>
         </div>
         <div className="toolbar">
           <button className="btn primary" onClick={() => setShowAdd(true)}>+ Add Project</button>
         </div>
       </div>
-      <div className="panel">
+
+      {/* Summary cards aggregated across projects */}
+      <div className="grid">
+        <div className="card blue">
+          <div className="k">
+            <PoundSterling size={24} />
+            <div>
+              <div className="title">Projects</div>
+              <div className="val">{projects.length}</div>
+              <div className="sub">Saved in portfolio</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card green">
+          <div className="k">
+            <TrendingUp size={24} />
+            <div>
+              <div className="title">Best IRR</div>
+              <div className="val">{projects.length ? Math.max(...projects.map(p=> p.irr||0)).toFixed(1) : '—'}%</div>
+              <div className="sub">Across portfolio</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card purple">
+          <div className="k">
+            <Zap size={24} />
+            <div>
+              <div className="title">Total MW</div>
+              <div className="val">{projects.reduce((s,p)=> s + (p.capacity||0), 0)} MW</div>
+              <div className="sub">Nameplate</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card orange">
+          <div className="k">
+            <Calculator size={24} />
+            <div>
+              <div className="title">Avg IRR</div>
+              <div className="val">{projects.length ? (projects.reduce((s,p)=> s + (p.irr||0),0)/projects.length).toFixed(1): '—'}%</div>
+              <div className="sub">Simple average</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Table of projects */}
+      <div className="panel" style={{marginTop:16}}>
         {projects.length === 0 ? (
           <div style={{padding:24}}>No projects yet. Click Add Project.</div>
         ) : (
-          <table style={{width:'100%'}}>
-            <thead>
-              <tr>
-                <th style={{textAlign:'left'}}>Project</th>
-                <th>MW</th>
-                <th>IRR</th>
-                <th>NPV (£m)</th>
-                <th>MOIC (x)</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {projects.map((p: Project) => (
-                <tr key={p.id} className="portfolio-row" onClick={() => openProject(p.id)}>
-                  <td style={{textAlign:'left'}}><strong>{p.name}</strong></td>
-                  <td>{p.capacity}MW</td>
-                  <td>{Number(p.irr).toFixed(1)}%</td>
-                  <td>{Number(p.npv).toFixed(1)}</td>
-                  <td>{Number(p.moic).toFixed(2)}</td>
-                  <td onClick={(e)=> e.stopPropagation()}>
-                    <button className="btn" onClick={() => removeProject(p.id)}>Delete</button>
-                  </td>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{textAlign:'left'}}>Project</th>
+                  <th>Capacity</th>
+                  <th>IRR</th>
+                  <th>NPV (£m)</th>
+                  <th>MOIC (x)</th>
+                  <th style={{textAlign:'center'}}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {projects.map((p: Project) => (
+                  <tr key={p.id} className="portfolio-row" onClick={() => openProject(p.id)}>
+                    <td><strong>{p.name}</strong></td>
+                    <td>{p.capacity}MW / {(p.capacity * (p.duration||0)).toFixed(0)}MWh</td>
+                    <td style={{fontWeight:700}}>{Number(p.irr||0).toFixed(1)}%</td>
+                    <td>{Number(p.npv||0).toFixed(1)}</td>
+                    <td>{Number(p.moic||0).toFixed(2)}</td>
+                    <td onClick={(e)=> e.stopPropagation()} style={{textAlign:'center'}}>
+                      <button className="btn" onClick={() => removeProject(p.id)}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
