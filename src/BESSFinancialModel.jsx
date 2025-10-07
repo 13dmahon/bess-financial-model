@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Area, AreaChart, PieChart, Pie, Cell, ScatterChart, Scatter
@@ -80,6 +80,7 @@ const BESSFinancialModel = () => {
   const [showIRRCalculation, setShowIRRCalculation] = useState(false);
   const [toast, setToast] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: "irr", direction: "desc" });
+  const memoRef = useRef(null);
 
   const [open, setOpen] = useState({
     project: true,
@@ -484,7 +485,7 @@ const BESSFinancialModel = () => {
     .memo-header{ text-align:center; border-bottom:3px solid #2563eb; padding-bottom:20px; margin-bottom:30px; }
     .memo-title{ font-size:32px; font-weight:800; color:#1e40af; margin:0; }
     .memo-subtitle{ font-size:16px; color:#64748b; margin-top:8px; }
-    .memo-section{ margin-bottom:30px; }
+    .memo-section{ margin-bottom:30px; page-break-inside: avoid; break-inside: avoid; }
     .memo-section h2{ font-size:20px; font-weight:700; color:#1e40af; border-bottom:2px solid #e5e7eb; padding-bottom:8px; margin-bottom:16px; }
     .memo-metrics{ display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; margin:20px 0; }
     .memo-metric{ text-align:center; padding:16px; background:#f8fafc; border-radius:8px; }
@@ -511,7 +512,7 @@ const BESSFinancialModel = () => {
     const equity = (100 - gearing);
     
     return (
-      <div className="memo-doc">
+      <div className="memo-doc" ref={memoRef}>
         <div className="memo-header">
           <div className="memo-title">{inputs.projectName} {inputs.capacityMW}MW BESS</div>
           <div className="memo-subtitle">Investment Memorandum - {scenario.charAt(0).toUpperCase() + scenario.slice(1)} Case Scenario</div>
@@ -715,6 +716,31 @@ const BESSFinancialModel = () => {
         </div>
       </div>
     );
+  };
+
+  const exportInvestmentMemoPDF = async () => {
+    try {
+      if (!memoRef.current) {
+        showToast('Open the memo before exporting', 'error');
+        return;
+      }
+      showToast('Generating PDF…', 'success');
+      const html2pdf = (await import('html2pdf.js')).default;
+      const safeName = String(inputs.projectName || 'Project').replace(/[^A-Za-z0-9_-]+/g, '_');
+      const filename = `${safeName}_Investment_Memo_${scenario}.pdf`;
+      const options = {
+        margin: [10, 10, 10, 10],
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: 1200 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] },
+      };
+      await html2pdf().from(memoRef.current).set(options).save();
+    } catch (err) {
+      console.error(err);
+      showToast('PDF generation failed', 'error');
+    }
   };
 
   return (
@@ -1400,7 +1426,7 @@ const BESSFinancialModel = () => {
               <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, position:'sticky', top:0, background:'white', zIndex:10, paddingBottom:16, borderBottom:'1px solid #e5e7eb'}}>
                 <div style={{fontWeight:800, fontSize:20}}>Investment Memorandum</div>
                 <div style={{display:'flex', gap:8}}>
-                  <button className="btn" onClick={() => showToast('PDF export coming soon', 'success')}>
+                  <button className="btn" onClick={exportInvestmentMemoPDF}>
                     <Download size={18}/> Export PDF
                   </button>
                   <button className="btn" onClick={()=>setShowInvestmentMemo(false)}><X size={18}/></button>
