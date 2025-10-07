@@ -154,14 +154,6 @@ const BESSFinancialModel = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const applyPreset = (name) => {
-    const p = presets[name];
-    if (!p) return;
-    setInputs((prev) => ({ ...prev, ...p }));
-    setScenario(name === "conservative" ? "downside" : name === "optimistic" ? "upside" : "base");
-    showToast(`${name[0].toUpperCase()}${name.slice(1)} preset applied`, "success");
-  };
-
   const update = (k, v) => setInputs((p) => ({ ...p, [k]: typeof v === "string" && k.toLowerCase().includes("name") ? v : numberOr(v, "") }));
 
   const calc = (S = inputs) => {
@@ -752,24 +744,6 @@ const BESSFinancialModel = () => {
         </div>
 
         <div className="panel">
-          <div style={{fontWeight:700, marginBottom:10}}>Scenario Analysis</div>
-          <div className="chips">
-            {[
-              {key:'downside', name:'Conservative', tag:'P10'},
-              {key:'base', name:'Base', tag:'P50'},
-              {key:'upside', name:'Optimistic', tag:'P90'},
-            ].map(({key,name,tag}) => (
-              <button key={key} className={`chip ${key===scenario? 'active':''}`} onClick={()=>setScenario(key)}>
-                {name} ({tag})
-              </button>
-            ))}
-            <span style={{marginLeft:8, display:'inline-flex', gap:8}}>
-              <button className="chip" onClick={()=>applyPreset('conservative')}>Apply Conservative</button>
-              <button className="chip" onClick={()=>applyPreset('base')}>Apply Base</button>
-              <button className="chip" onClick={()=>applyPreset('optimistic')}>Apply Optimistic</button>
-            </span>
-          </div>
-
           <div className="tabs">
             {["dashboard","inputs","portfolio","cashflow","sensitivity"].map(t => (
               <button key={t} className={`tab ${t===tab?"active":""}`} onClick={()=>setTab(t)}>
