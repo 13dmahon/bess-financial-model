@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
+import html2pdf from "html2pdf.js";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Area, AreaChart, PieChart, Pie, Cell, ScatterChart, Scatter
@@ -80,6 +81,7 @@ const BESSFinancialModel = () => {
   const [showIRRCalculation, setShowIRRCalculation] = useState(false);
   const [toast, setToast] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: "irr", direction: "desc" });
+  const memoRef = useRef(null);
 
   const [open, setOpen] = useState({
     project: true,
@@ -152,6 +154,32 @@ const BESSFinancialModel = () => {
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const exportMemoToPDF = async () => {
+    try {
+      const node = memoRef.current;
+      if (!node) {
+        showToast("Open the Investment Memorandum first", "error");
+        return;
+      }
+      const filename = `${inputs.projectName.replace(/\s+/g, '_')}_Investment_Memo_${scenario}.pdf`;
+      await html2pdf()
+        .set({
+          margin: [0.5, 0.5, 0.5, 0.5],
+          filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+          jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'] },
+        })
+        .from(node)
+        .save();
+      showToast('PDF exported', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('PDF export failed', 'error');
+    }
   };
 
   const update = (k, v) => setInputs((p) => ({ ...p, [k]: typeof v === "string" && k.toLowerCase().includes("name") ? v : numberOr(v, "") }));
@@ -511,7 +539,7 @@ const BESSFinancialModel = () => {
     const equity = (100 - gearing);
     
     return (
-      <div className="memo-doc">
+      <div className="memo-doc" ref={memoRef}>
         <div className="memo-header">
           <div className="memo-title">{inputs.projectName} {inputs.capacityMW}MW BESS</div>
           <div className="memo-subtitle">Investment Memorandum - {scenario.charAt(0).toUpperCase() + scenario.slice(1)} Case Scenario</div>
@@ -1400,7 +1428,7 @@ const BESSFinancialModel = () => {
               <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, position:'sticky', top:0, background:'white', zIndex:10, paddingBottom:16, borderBottom:'1px solid #e5e7eb'}}>
                 <div style={{fontWeight:800, fontSize:20}}>Investment Memorandum</div>
                 <div style={{display:'flex', gap:8}}>
-                  <button className="btn" onClick={() => showToast('PDF export coming soon', 'success')}>
+                  <button className="btn" onClick={exportMemoToPDF}>
                     <Download size={18}/> Export PDF
                   </button>
                   <button className="btn" onClick={()=>setShowInvestmentMemo(false)}><X size={18}/></button>
