@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Area, AreaChart, PieChart, Pie, Cell, ScatterChart, Scatter
@@ -71,7 +71,61 @@ const presets = {
   }
 };
 
-const BESSFinancialModel = () => {
+export const defaultInputs = {
+  projectName: "Staythorpe",
+  capacityMW: 360,
+  durationHours: 2,
+  fcDate: "2025-05-01",
+  codDate: "2027-08-01",
+  projectLifeYears: 40,
+  roundtripEfficiency_pct: 85,
+  degradationRate_pct: 2.0,
+  availability_pct: 95,
+  cyclesPerDay: 1.5,
+  augmentationYear: 20,
+  augmentationCost_pctOfBattery: 40,
+  energyTrading_k: 15,
+  frequencyResponse_k: 2,
+  capacityMarket_k: 30,
+  ancillaryServices_k: 2,
+  floorRevenue_k: 0,
+  contractLength_years: 12,
+  revenueEscalation: 2.0,
+  fixedOM_k: 15,
+  variableOM_perMWh: 0.5,
+  bessLTSA_k: 7,
+  ltsaStartYear: 1,
+  gridOM_k: 1.6,
+  insurance_pctCapex: 0.5,
+  businessRates_pctCapex: 0.8,
+  assetMgmt_pctCapex: 0.8,
+  landLease_k: 2.0,
+  epc_k: 201,
+  bessSupply_k: 196,
+  bop_k: 50,
+  gridContestable_k: 85,
+  gridNonContestable_k: 45,
+  development_k: 14,
+  contingency_pct: 10,
+  debtPercentage: 65,
+  baseRate: 4.5,
+  interestMargin: 5.5,
+  debtTenor: 15,
+  dscrCovenant: 1.40,
+  refinancing: true,
+  refiAfterCOD_years: 1,
+  refiRate: 2.25,
+  corpTaxRate: 25,
+  capAllowancesPool: "Special",
+  depreciationMethod: "Straight-line",
+  vatTreatment: "Recoverable",
+  targetEquityIRR: 12,
+  minDSCR: 1.15,
+  maxGearing_pct: 85,
+  discountRate: 8,
+};
+
+const BESSFinancialModel = ({ initialInputs, hideAddToPortfolio = false, hidePortfolioTab = false, enableExcel = false, onSaveProject } = {}) => {
   const [scenario, setScenario] = useState("base");
   const [tab, setTab] = useState("dashboard");
   const [showOptimizer, setShowOptimizer] = useState(false);
@@ -94,59 +148,7 @@ const BESSFinancialModel = () => {
     returns: true,
   });
 
-  const [inputs, setInputs] = useState({
-    projectName: "Staythorpe",
-    capacityMW: 360,
-    durationHours: 2,
-    fcDate: "2025-05-01",
-    codDate: "2027-08-01",
-    projectLifeYears: 40,
-    roundtripEfficiency_pct: 85,
-    degradationRate_pct: 2.0,
-    availability_pct: 95,
-    cyclesPerDay: 1.5,
-    augmentationYear: 20,
-    augmentationCost_pctOfBattery: 40,
-    energyTrading_k: 15,
-    frequencyResponse_k: 2,
-    capacityMarket_k: 30,
-    ancillaryServices_k: 2,
-    floorRevenue_k: 0,
-    contractLength_years: 12,
-    revenueEscalation: 2.0,
-    fixedOM_k: 15,
-    variableOM_perMWh: 0.5,
-    bessLTSA_k: 7,
-    ltsaStartYear: 1,
-    gridOM_k: 1.6,
-    insurance_pctCapex: 0.5,
-    businessRates_pctCapex: 0.8,
-    assetMgmt_pctCapex: 0.8,
-    landLease_k: 2.0,
-    epc_k: 201,
-    bessSupply_k: 196,
-    bop_k: 50,
-    gridContestable_k: 85,
-    gridNonContestable_k: 45,
-    development_k: 14,
-    contingency_pct: 10,
-    debtPercentage: 65,
-    baseRate: 4.5,
-    interestMargin: 5.5,
-    debtTenor: 15,
-    dscrCovenant: 1.40,
-    refinancing: true,
-    refiAfterCOD_years: 1,
-    refiRate: 2.25,
-    corpTaxRate: 25,
-    capAllowancesPool: "Special",
-    depreciationMethod: "Straight-line",
-    vatTreatment: "Recoverable",
-    targetEquityIRR: 12,
-    minDSCR: 1.15,
-    maxGearing_pct: 85,
-    discountRate: 8,
-  });
+  const [inputs, setInputs] = useState({ ...defaultInputs });
 
   const [activeSubtab, setActiveSubtab] = useState("project");
 
@@ -303,6 +305,11 @@ const BESSFinancialModel = () => {
   };
 
   const financials = useMemo(() => calc(), [inputs, scenario]);
+  useEffect(() => {
+    if (initialInputs) {
+      setInputs({ ...defaultInputs, ...initialInputs });
+    }
+  }, [initialInputs]);
 
   const validations = useMemo(() => {
     const warns = [];
@@ -352,6 +359,30 @@ const BESSFinancialModel = () => {
     };
     setProjectPortfolio(prev => [...prev, newProject]);
     showToast(`${inputs.projectName} added to portfolio`, "success");
+    if (typeof onSaveProject === 'function') {
+      try { onSaveProject(newProject); } catch {}
+    }
+  };
+
+  const handleSaveProject = () => {
+    const project = {
+      id: Date.now(),
+      name: inputs.projectName,
+      capacity: inputs.capacityMW,
+      duration: inputs.durationHours,
+      capex: financials.totalCapex,
+      irr: financials.irr,
+      npv: financials.npv,
+      moic: financials.moic,
+      avgDSCR: financials.averageDSCR,
+      minDSCR: financials.minDSCR,
+      payback: financials.simplePayback,
+      inputs: { ...inputs },
+    };
+    if (typeof onSaveProject === 'function') {
+      onSaveProject(project);
+      showToast('Project saved', 'success');
+    }
   };
 
   const deleteProject = (id) => {
@@ -765,13 +796,18 @@ const BESSFinancialModel = () => {
           <div className="toolbar">
             <button className="btn" onClick={() => setShowInvestmentMemo(true)}><FileText size={18}/> Investment Memo</button>
             <button className="btn" onClick={() => setShowOptimizer(true)}><Sliders size={18}/> Optimize</button>
-            <button className="btn" onClick={addToPortfolio}><Plus size={18}/> Add to Portfolio</button>
+            {!hideAddToPortfolio && (
+              <button className="btn" onClick={addToPortfolio}><Plus size={18}/> Add to Portfolio</button>
+            )}
+            {typeof onSaveProject === 'function' && (
+              <button className="btn primary" onClick={handleSaveProject}><Check size={18}/> Save Project</button>
+            )}
           </div>
         </div>
 
         <div className="panel">
           <div className="tabs">
-            {["dashboard","inputs","portfolio","cashflow","sensitivity"].map(t => (
+            {(["dashboard","inputs", ...(hidePortfolioTab?[]:["portfolio"]), "cashflow","sensitivity", ...(enableExcel? ["excel"]:[])]).map(t => (
               <button key={t} className={`tab ${t===tab?"active":""}`} onClick={()=>setTab(t)}>
                 {t[0].toUpperCase()+t.slice(1)}
               </button>
@@ -1389,6 +1425,46 @@ const BESSFinancialModel = () => {
                 <li>Project remains above {inputs.targetEquityIRR}% target IRR unless revenue drops below <strong>{[-20,-10,0,10,20].find(v => (sensitivityData.find(d => d.revenueVar === v && d.opexVar === 0)?.irr || 0) < inputs.targetEquityIRR) || 'never'}%</strong></li>
               </ul>
             </div>
+          </div>
+        )}
+
+        {tab === "excel" && enableExcel && (
+          <div className="panel" style={{marginTop:16}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              <div style={{fontWeight:800}}>Excel Export</div>
+              <button className="btn" onClick={async () => {
+                try {
+                  const XLSX = await import('xlsx');
+                  const wsData = [[
+                    'Year','Revenue (£m)','OPEX (£m)','EBITDA (£m)','Interest (£m)','Principal (£m)','Tax (£m)','FCF (£m)','DSCR (x)'
+                  ], ...financials.years.map(y => [
+                    y.year, y.totalRevenue, y.totalOpex, y.ebitda, y.interest, y.principal, y.taxPayment, y.freeCashFlow, isFinite(y.dscr)? Number(y.dscr.toFixed(2)) : ''
+                  ])];
+                  const ws = XLSX.utils.aoa_to_sheet(wsData);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, 'Cashflows');
+                  const metrics = [
+                    ['Total CAPEX (£m)', Number(financials.totalCapex.toFixed(2))],
+                    ['Debt (£m)', Number(financials.debtAmount.toFixed(2))],
+                    ['Equity (£m)', Number(financials.equityAmount.toFixed(2))],
+                    ['IRR (%)', Number(financials.irr.toFixed(2))],
+                    ['NPV (£m)', Number(financials.npv.toFixed(2))],
+                    ['MOIC (x)', Number(financials.moic.toFixed(2))],
+                    ['Avg DSCR (x)', Number(financials.averageDSCR.toFixed(2))],
+                    ['Min DSCR (x)', Number(financials.minDSCR.toFixed(2))],
+                  ];
+                  const ws2 = XLSX.utils.aoa_to_sheet([['Metric','Value'], ...metrics]);
+                  XLSX.utils.book_append_sheet(wb, ws2, 'Summary');
+                  const safeName = String(inputs.projectName || 'Project').replace(/[^A-Za-z0-9_-]+/g, '_');
+                  XLSX.writeFile(wb, `${safeName}_Model.xlsx`);
+                  showToast('Excel downloaded', 'success');
+                } catch (e) {
+                  console.error(e);
+                  showToast('Excel export failed', 'error');
+                }
+              }}>Download .xlsx</button>
+            </div>
+            <div className="sub" style={{marginTop:8}}>Exports cashflows and key metrics to Excel.</div>
           </div>
         )}
 
